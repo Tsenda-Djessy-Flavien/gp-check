@@ -19,7 +19,7 @@ class _FactCheckScreenState extends State<FactCheckScreen> {
     String apiUrl =
         'https://factchecktools.googleapis.com/v1alpha1/claims:search';
 
-    Uri uri = Uri.parse(apiUrl + '?key=$apiKey&query=$userInput');
+    Uri uri = Uri.parse('$apiUrl?key=$apiKey&query=$userInput');
     final response = await http.get(uri);
 
     if (response.statusCode == 200) {

@@ -38,6 +38,7 @@ dependencies:
   url_launcher:
 
   http:
+  crypto:
 
 dev_dependencies:
   flutter_test:
