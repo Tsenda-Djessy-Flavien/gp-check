@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -34,12 +35,22 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _urlController = TextEditingController();
   bool _isLoading = false;
   bool _isUrlEmpty = false;
+  bool _isPasteButtonVisible = false;
   String _result = '';
 
   @override
   void dispose() {
     _urlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pasteText() async {
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    if (clipboardData != null && clipboardData.text != null) {
+      setState(() {
+        _urlController.text = clipboardData.text!;
+      });
+    }
   }
 
   String extractUrl(String text) {
@@ -100,13 +111,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // if (!isValidUrl(url)) {
-    //   setState(() {
-    //     _result = 'Error: Invalid URL';
-    //   });
-    //   return;
-    // }
-
     setState(() {
       _isLoading = true; // Activation du chargement
       _result = ''; // Réinitialisation du résultat précédent
@@ -137,42 +141,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // void _checkUrl() async {
-  //   // final url = _urlController.text;
-  //   final url = extractUrl(_urlController.text);
-
-  //   if (url.isNotEmpty) {
-  //     setState(() {
-  //       _isLoading = true; // Activation du chargement
-  //       _result = ''; // Réinitialisation du résultat précédent
-  //     });
-
-  //     try {
-  //       final result = await submitUrl(url);
-
-  //       setState(() {
-  //         _result = result.toString();
-  //       });
-
-  //       // Effectuer une deuxième requête GET en utilisant l'URL fournie
-  //       final analysisResultsUrl = result['data']['links']['self'];
-  //       final finalResults = await getFinalResults(analysisResultsUrl);
-
-  //       setState(() {
-  //         _result = finalResults.toString();
-  //       });
-  //     } catch (error) {
-  //       setState(() {
-  //         _result = 'Error: $error';
-  //       });
-  //     } finally {
-  //       setState(() {
-  //         _isLoading = false; // Désactivation du chargement
-  //       });
-  //     }
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,11 +169,25 @@ class _HomePageState extends State<HomePage> {
                     : null,
                 errorText: _isUrlEmpty ? 'URL cannot be empty' : null,
               ),
+              onChanged: (value) {
+                setState(() {
+                  _isUrlEmpty = false;
+                  _isPasteButtonVisible = value.isEmpty;
+                });
+              },
             ),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _checkUrl,
-              child: const Text('Check URL'),
-            ),
+            _urlController.text.isNotEmpty
+                ? ElevatedButton(
+                    onPressed: _isLoading ? null : _checkUrl,
+                    child: const Text('Check URL'),
+                  )
+                : const SizedBox(height: 0),
+            _urlController.text.isEmpty
+                ? ElevatedButton(
+                    onPressed: _pasteText,
+                    child: const Text('Paste Text'),
+                  )
+                : const SizedBox(height: 0),
             const SizedBox(height: 20.0),
             Visibility(
               visible: _isLoading,
