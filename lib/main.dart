@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -14,14 +16,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HomePage(),
+      home: const HomePage(),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -37,7 +41,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<Map<String, dynamic>> submitUrl(String url) async {
-    final apiUrl = 'https://www.virustotal.com/api/v3/urls';
+    const apiUrl = 'https://www.virustotal.com/api/v3/urls';
     final headers = {
       'x-apikey': apiKey,
       'Content-Type': 'application/json',
@@ -46,7 +50,7 @@ class _HomePageState extends State<HomePage> {
     final uri = Uri.parse(apiUrl).replace(queryParameters: queryParams);
 
     final response = await http.post(uri, headers: headers);
-
+    // print('submitUrl - body : ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return data as Map<String, dynamic>;
@@ -56,43 +60,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> fetchUrlAnalysis(String url) async {
-    try {
-      final urlAnalysisResponse = await submitUrl(url);
-      final analysisUrl = urlAnalysisResponse['data']['links']['self'];
-      final analysisResults = await getAnalysisResults(analysisUrl);
-
-      final analysisResultsUrl = analysisResults['links']['self'];
-      final finalResults = await getFinalResults(analysisResultsUrl);
-
-      setState(() {
-        _result = finalResults.toString();
-      });
-    } catch (e) {
-      print('Erreur lors de la récupération des résultats de l\'analyse : $e');
-    }
-  }
-
   Future<Map<String, dynamic>> getFinalResults(String finalResultsUrl) async {
     final headers = {'x-apikey': apiKey};
 
     final response =
         await http.get(Uri.parse(finalResultsUrl), headers: headers);
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data['data'] as Map<String, dynamic>;
-    } else {
-      final error = json.decode(response.body)['error'];
-      throw Exception('${error['code']}: ${error['message']}');
-    }
-  }
-
-  Future<Map<String, dynamic>> getAnalysisResults(String analysisUrl) async {
-    final headers = {'x-apikey': apiKey};
-
-    final response = await http.get(Uri.parse(analysisUrl), headers: headers);
-
+    // print("getFinalResults  - ${response.body}");
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return data['data'] as Map<String, dynamic>;
@@ -132,7 +105,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('VirusTotal URL Checker'),
+        title: const Text('VirusTotal URL Checker'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -140,15 +113,15 @@ class _HomePageState extends State<HomePage> {
           children: [
             TextField(
               controller: _urlController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Enter URL',
               ),
             ),
             ElevatedButton(
               onPressed: _checkUrl,
-              child: Text('Check URL'),
+              child: const Text('Check URL'),
             ),
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
             Expanded(
               child: SingleChildScrollView(
                 child: Text(_result),
