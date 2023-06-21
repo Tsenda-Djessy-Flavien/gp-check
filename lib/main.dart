@@ -32,12 +32,23 @@ class _HomePageState extends State<HomePage> {
   final String apiKey =
       'e8d05d416dd2c5218ac9c440d15eae9dbdd2d5732b6aa6eb769d58fca924b300';
   final TextEditingController _urlController = TextEditingController();
+  bool _isLoading = false;
+  bool _isUrlEmpty = false;
   String _result = '';
 
   @override
   void dispose() {
     _urlController.dispose();
     super.dispose();
+  }
+
+  String extractUrl(String text) {
+    final regex = RegExp(
+      r"(?:(?:https?|http):\/\/|www\.)[^\s/$.?#].[^\s]*",
+      caseSensitive: false,
+    );
+    final match = regex.firstMatch(text);
+    return match?.group(0) ?? '';
   }
 
   Future<Map<String, dynamic>> submitUrl(String url) async {
@@ -76,30 +87,91 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _checkUrl() async {
-    final url = _urlController.text;
+    final url = extractUrl(_urlController.text);
 
-    if (url.isNotEmpty) {
-      try {
-        final result = await submitUrl(url);
+    setState(() {
+      _isUrlEmpty = url.isEmpty;
+    });
 
-        setState(() {
-          _result = result.toString();
-        });
+    if (_isUrlEmpty) {
+      setState(() {
+        _result = 'Error: URL is empty';
+      });
+      return;
+    }
 
-        // Effectuer une deuxième requête GET en utilisant l'URL fournie
-        final analysisResultsUrl = result['data']['links']['self'];
-        final finalResults = await getFinalResults(analysisResultsUrl);
+    // if (!isValidUrl(url)) {
+    //   setState(() {
+    //     _result = 'Error: Invalid URL';
+    //   });
+    //   return;
+    // }
 
-        setState(() {
-          _result = finalResults.toString();
-        });
-      } catch (error) {
-        setState(() {
-          _result = 'Error: $error';
-        });
-      }
+    setState(() {
+      _isLoading = true; // Activation du chargement
+      _result = ''; // Réinitialisation du résultat précédent
+    });
+
+    try {
+      final result = await submitUrl(url);
+
+      setState(() {
+        _result = result.toString();
+      });
+
+      // Effectuer une deuxième requête GET en utilisant l'URL fournie
+      final analysisResultsUrl = result['data']['links']['self'];
+      final finalResults = await getFinalResults(analysisResultsUrl);
+
+      setState(() {
+        _result = finalResults.toString();
+      });
+    } catch (error) {
+      setState(() {
+        _result = 'Error: $error';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false; // Désactivation du chargement
+      });
     }
   }
+
+  // void _checkUrl() async {
+  //   // final url = _urlController.text;
+  //   final url = extractUrl(_urlController.text);
+
+  //   if (url.isNotEmpty) {
+  //     setState(() {
+  //       _isLoading = true; // Activation du chargement
+  //       _result = ''; // Réinitialisation du résultat précédent
+  //     });
+
+  //     try {
+  //       final result = await submitUrl(url);
+
+  //       setState(() {
+  //         _result = result.toString();
+  //       });
+
+  //       // Effectuer une deuxième requête GET en utilisant l'URL fournie
+  //       final analysisResultsUrl = result['data']['links']['self'];
+  //       final finalResults = await getFinalResults(analysisResultsUrl);
+
+  //       setState(() {
+  //         _result = finalResults.toString();
+  //       });
+  //     } catch (error) {
+  //       setState(() {
+  //         _result = 'Error: $error';
+  //       });
+  //     } finally {
+  //       setState(() {
+  //         _isLoading = false; // Désactivation du chargement
+  //       });
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -112,19 +184,43 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             TextField(
+              maxLines: 5,
               controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: 'Enter URL',
+              decoration: InputDecoration(
+                hintText: "Veuillez saisir votre text",
+                enabledBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey, width: 0.0),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey, width: 0.0),
+                ),
+                border: _isUrlEmpty
+                    ? const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red),
+                      )
+                    : null,
+                errorText: _isUrlEmpty ? 'URL cannot be empty' : null,
               ),
             ),
             ElevatedButton(
-              onPressed: _checkUrl,
+              onPressed: _isLoading ? null : _checkUrl,
               child: const Text('Check URL'),
+            ),
+            const SizedBox(height: 20.0),
+            Visibility(
+              visible: _isLoading,
+              child: const CircularProgressIndicator(), // Affichage du loader
             ),
             const SizedBox(height: 20.0),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(_result),
+                child: Text(
+                  _result,
+                  style: TextStyle(
+                    color:
+                        _result.startsWith('Error') ? Colors.red : Colors.black,
+                  ),
+                ),
               ),
             ),
           ],
