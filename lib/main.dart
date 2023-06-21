@@ -8,7 +8,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -127,9 +127,23 @@ class _HomePageState extends State<HomePage> {
       final analysisResultsUrl = result['data']['links']['self'];
       final finalResults = await getFinalResults(analysisResultsUrl);
 
-      setState(() {
-        _result = finalResults.toString();
-      });
+      final analysisStatus = finalResults['attributes']?['status'];
+      final maliciousStatus =
+          finalResults['attributes']?['stats']?['malicious'];
+      final engines = finalResults['attributes']?['results'];
+
+      setState(
+        () {
+          _result = 'Statut de l\'analyse: ${analysisStatus ?? 'N/A'}\n'
+              'Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90 \n\n'
+              'Résultats de la recherche\n';
+          engines?.forEach((key, value) {
+            final engineName = value['engine_name'];
+            final engineResult = value['result'];
+            _result += '$engineName: $engineResult\n';
+          });
+        },
+      );
     } catch (error) {
       setState(() {
         _result = 'Error: $error';
