@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = false;
   bool _isUrlEmpty = false;
   bool _isPasteButtonVisible = false;
-  String _result = '';
+  List<String> _result = [];
 
   @override
   void dispose() {
@@ -72,7 +72,6 @@ class _HomePageState extends State<HomePage> {
     final uri = Uri.parse(apiUrl).replace(queryParameters: queryParams);
 
     final response = await http.post(uri, headers: headers);
-    // print('submitUrl - body : ${response.body}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return data as Map<String, dynamic>;
@@ -87,10 +86,19 @@ class _HomePageState extends State<HomePage> {
 
     final response =
         await http.get(Uri.parse(finalResultsUrl), headers: headers);
-    // print("getFinalResults  - ${response.body}");
+
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return data['data'] as Map<String, dynamic>;
+      final attributes = data['data']?['attributes'];
+      final analysisStatus = attributes?['status'];
+      final maliciousStatus = attributes?['stats']?['malicious'];
+      final engines = attributes?['results'];
+
+      return {
+        'analysisStatus': analysisStatus,
+        'maliciousStatus': maliciousStatus,
+        'engines': engines,
+      };
     } else {
       final error = json.decode(response.body)['error'];
       throw Exception('${error['code']}: ${error['message']}');
@@ -106,51 +114,54 @@ class _HomePageState extends State<HomePage> {
 
     if (_isUrlEmpty) {
       setState(() {
-        _result = 'Error: URL is empty';
+        _result = ['Error: URL is empty'];
       });
       return;
     }
 
     setState(() {
-      _isLoading = true; // Activation du chargement
-      _result = ''; // Réinitialisation du résultat précédent
+      _isLoading = true;
+      _result = [];
     });
 
     try {
       final result = await submitUrl(url);
 
       setState(() {
-        _result = result.toString();
+        final analysisStatus = result['data']['attributes']?['status'];
+        final maliciousStatus =
+            result['data']['attributes']?['stats']?['malicious'];
+        _result.add('Statut de l\'analyse: ${analysisStatus ?? 'N/A'}');
+        _result.add('Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90');
       });
 
-      // Effectuer une deuxième requête GET en utilisant l'URL fournie
       final analysisResultsUrl = result['data']['links']['self'];
       final finalResults = await getFinalResults(analysisResultsUrl);
 
-      final analysisStatus = finalResults['attributes']?['status'];
-      final maliciousStatus =
-          finalResults['attributes']?['stats']?['malicious'];
-      final engines = finalResults['attributes']?['results'];
+      final analysisStatus = finalResults['analysisStatus'];
+      final maliciousStatus = finalResults['maliciousStatus'];
+      final engines = finalResults['engines'];
 
-      setState(
-        () {
-          _result = 'Statut de l\'analyse: ${analysisStatus ?? 'N/A'}\n'
-              'Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90 \n\n'
-              'Résultats de la recherche\n';
-          engines?.forEach((key, value) {
-            final engineName = value['engine_name'];
-            final engineResult = value['result'];
-            _result += '$engineName: $engineResult\n';
-          });
-        },
-      );
+      setState(() {
+        _result = [
+          'Statut de l\'analyse: ${analysisStatus ?? 'N/A'}',
+          'Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90',
+          'Résultats de la recherche',
+        ];
+
+        engines?.forEach((key, value) {
+          final engineName = value['engine_name'];
+          final engineResult = value['result'];
+          _result.add('$engineName: $engineResult');
+        });
+      });
     } catch (error) {
       setState(() {
-        _result = 'Error: $error';
+        _result = ['Error: $error'];
       });
     } finally {
       setState(() {
-        _isLoading = false; // Désactivation du chargement
+        _isLoading = false;
       });
     }
   }
@@ -169,7 +180,7 @@ class _HomePageState extends State<HomePage> {
               maxLines: 5,
               controller: _urlController,
               decoration: InputDecoration(
-                hintText: "Veuillez saisir votre text",
+                hintText: "Veuillez saisir votre texte",
                 enabledBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey, width: 0.0),
                 ),
@@ -205,17 +216,22 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20.0),
             Visibility(
               visible: _isLoading,
-              child: const CircularProgressIndicator(), // Affichage du loader
+              child: const CircularProgressIndicator(),
             ),
             const SizedBox(height: 20.0),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(
-                  _result,
-                  style: TextStyle(
-                    color:
-                        _result.startsWith('Error') ? Colors.red : Colors.black,
-                  ),
+                child: Column(
+                  children: _result
+                      .map((item) => Text(
+                            item,
+                            style: TextStyle(
+                              color: item.startsWith('Error')
+                                  ? Colors.red
+                                  : Colors.black,
+                            ),
+                          ))
+                      .toList(),
                 ),
               ),
             ),
