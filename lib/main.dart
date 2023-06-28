@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'models/analysis_result_model.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -36,7 +38,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = false;
   bool _isUrlEmpty = false;
   bool _isPasteButtonVisible = false;
-  List<String> _result = [];
+  List _result = [];
 
   @override
   void dispose() {
@@ -105,7 +107,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _checkUrl() async {
+  Future<List<AnalysisResult>> _checkUrl() async {
     final url = extractUrl(_urlController.text);
 
     setState(() {
@@ -113,11 +115,21 @@ class _HomePageState extends State<HomePage> {
     });
 
     if (_isUrlEmpty) {
-      setState(() {
-        _result = ['Error: URL is empty'];
-      });
-      return;
+      return [
+        AnalysisResult(
+          analysisStatus: 'Error: URL is empty',
+          maliciousStatus: 0,
+          engines: [],
+        )
+      ];
     }
+
+    // if (_isUrlEmpty) {
+    //   setState(() {
+    //     _result = ['Error: URL is empty'];
+    //   });
+    //   return;
+    // }
 
     setState(() {
       _isLoading = true;
@@ -127,13 +139,13 @@ class _HomePageState extends State<HomePage> {
     try {
       final result = await submitUrl(url);
 
-      setState(() {
-        final analysisStatus = result['data']['attributes']?['status'];
-        final maliciousStatus =
-            result['data']['attributes']?['stats']?['malicious'];
-        _result.add('Statut de l\'analyse: ${analysisStatus ?? 'N/A'}');
-        _result.add('Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90');
-      });
+      // setState(() {
+      //   final analysisStatus = result['data']['attributes']?['status'];
+      //   final maliciousStatus =
+      //       result['data']['attributes']?['stats']?['malicious'];
+      //   _result.add('Statut de l\'analyse: ${analysisStatus ?? 'N/A'}');
+      //   _result.add('Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90');
+      // });
 
       final analysisResultsUrl = result['data']['links']['self'];
       final finalResults = await getFinalResults(analysisResultsUrl);
@@ -142,23 +154,47 @@ class _HomePageState extends State<HomePage> {
       final maliciousStatus = finalResults['maliciousStatus'];
       final engines = finalResults['engines'];
 
-      setState(() {
-        _result = [
-          'Statut de l\'analyse: ${analysisStatus ?? 'N/A'}',
-          'Statut de malveillance: ${maliciousStatus ?? 'N/A'}/90',
-          'Résultats de la recherche',
-        ];
+      final enginesList = engines?.entries
+              .map((entry) {
+                final engineName = entry.key;
+                final engineResult = entry.value['result'];
+                final convertedEngine = Map<String, String>.from({
+                  'engineName': engineName,
+                  'engineResult': engineResult ?? 'N/A',
+                });
+                return convertedEngine;
+              })
+              .toList()
+              .cast<Map<String, String>>() ??
+          [];
 
-        engines?.forEach((key, value) {
-          final engineName = value['engine_name'];
-          final engineResult = value['result'];
-          _result.add('$engineName: $engineResult');
-        });
-      });
-    } catch (error) {
+      final List<AnalysisResult> analysisResults = [
+        AnalysisResult(
+          analysisStatus: analysisStatus ?? 'N/A',
+          maliciousStatus: maliciousStatus ?? 0,
+          engines: enginesList,
+        ),
+      ];
+
       setState(() {
-        _result = ['Error: $error'];
+        _result = analysisResults;
       });
+
+      return analysisResults;
+    } catch (error) {
+      final List<AnalysisResult> errorResult = [
+        AnalysisResult(
+          analysisStatus: 'Error: $error',
+          maliciousStatus: 0,
+          engines: [],
+        ),
+      ];
+
+      setState(() {
+        _result = errorResult;
+      });
+
+      return errorResult;
     } finally {
       setState(() {
         _isLoading = false;
@@ -168,6 +204,48 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    Widget _buildEngineWidget(String engineName, String engineResult) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(4.0),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              engineName,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  engineResult,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('VirusTotal URL Checker'),
@@ -222,16 +300,49 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
-                  children: _result
-                      .map((item) => Text(
-                            item,
-                            style: TextStyle(
-                              color: item.startsWith('Error')
-                                  ? Colors.red
-                                  : Colors.black,
-                            ),
-                          ))
-                      .toList(),
+                  children: _result.map((item) {
+                    final analysisStatus = item.analysisStatus;
+                    final maliciousStatus = item.maliciousStatus;
+                    final engines = item.engines;
+
+                    final enginesWidgets = engines.map((engine) {
+                      final engineName = engine['engineName'];
+                      final engineResult = engine['engineResult'];
+                      return _buildEngineWidget(engineName, engineResult);
+                    }).toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Analysis Status: $analysisStatus',
+                          style: TextStyle(
+                            color: analysisStatus.startsWith('Error')
+                                ? Colors.red
+                                : Colors.black,
+                          ),
+                        ),
+                        Text(
+                          'Malicious Status: $maliciousStatus/90',
+                          style: TextStyle(
+                            color: analysisStatus.startsWith('Error')
+                                ? Colors.red
+                                : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Engines:',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ...enginesWidgets,
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
             ),
