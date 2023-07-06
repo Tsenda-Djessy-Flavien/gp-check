@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:readsms/readsms.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -39,11 +41,40 @@ class _HomePageState extends State<HomePage> {
   bool _isUrlEmpty = false;
   bool _isPasteButtonVisible = false;
   List _result = [];
+  final _plugin = Readsms();
+
+  @override
+  void initState() {
+    super.initState();
+    getPermission().then((value) {
+      if (value) {
+        _plugin.read();
+        _plugin.smsStream.listen((event) {
+          setState(() {
+            _urlController.text = event.body;
+          });
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
     _urlController.dispose();
+    _plugin.dispose();
     super.dispose();
+  }
+
+  Future<bool> getPermission() async {
+    if (await Permission.sms.status == PermissionStatus.granted) {
+      return true;
+    } else {
+      if (await Permission.sms.request() == PermissionStatus.granted) {
+        return true;
+      } else {
+        return false;
+      }
+    }
   }
 
   Future<void> _pasteText() async {

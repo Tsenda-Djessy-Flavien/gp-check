@@ -39,6 +39,8 @@ dependencies:
 
   http:
   crypto:
+  readsms:
+  permission_handler:
 
 dev_dependencies:
   flutter_test:
