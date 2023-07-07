@@ -41,28 +41,21 @@ class _HomePageState extends State<HomePage> {
   bool _isUrlEmpty = false;
   bool _isPasteButtonVisible = false;
   List _result = [];
-  final _plugin = Readsms();
+  final _readsms = Readsms();
 
   @override
   void initState() {
     super.initState();
     getPermission().then((value) {
       if (value) {
-        _plugin.read();
-        _plugin.smsStream.listen((event) {
+        _readsms.read();
+        _readsms.smsStream.listen((event) {
           setState(() {
             _urlController.text = event.body;
           });
         });
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    _plugin.dispose();
-    super.dispose();
   }
 
   Future<bool> getPermission() async {
@@ -75,6 +68,13 @@ class _HomePageState extends State<HomePage> {
         return false;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _readsms.dispose();
+    super.dispose();
   }
 
   Future<void> _pasteText() async {
